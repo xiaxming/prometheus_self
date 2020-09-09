@@ -1,0 +1,118 @@
+# my global config
+global:
+  scrape_interval:     15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  # scrape_timeout is set to the global default (10s).
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+  #- static_configs:
+    #- targets: ['192.168.12.129:9093']
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+    - "/usr/local/prometheus/rule.yml"
+    - "/usr/local/prometheus/blackbox_rule.yml"
+  # - "second_rules.yml"
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'prometheus'
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+    scrape_interval: 10s
+    static_configs:
+    - targets: ['192.168.12.129:9090']
+      labels:
+        instance: prometheus
+        
+  - job_name: 'node'
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+    scrape_interval: 10s
+    static_configs:
+    - targets: ['192.168.12.129:9100']
+      labels:
+        instance: jumpserver
+    - targets: ['192.168.12.130:9100']
+      labels:
+        instance: node1
+    - targets: ['192.168.12.131:9100']
+      labels:
+        instance: node2          
+
+  - job_name: 'mysql'
+    static_configs:
+    - targets: ['192.168.12.130:9104']
+      labels:
+        instance: db1
+    - targets: ['192.168.12.131:9104']
+      labels:
+        instance: db2
+
+  - job_name: 'nginx-vts'
+    static_configs:
+    - targets: ['192.168.12.129:9913']
+      labels:
+        instance: proxy
+
+  - job_name: 'push-gateway'
+    static_configs:
+    - targets: ['192.168.12.129:9091']
+      labels:
+        instance: pushgateway
+
+  - job_name: 'ping_status'
+    metrics_path: /probe
+    params:
+      module: [icmp]
+    static_configs:
+      - targets: ['192.168.12.129']
+        labels:
+          instance: 'ping_status'
+          group: 'jumpserver'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+        #      - source_labels: [__param_target]
+        #        target_label: instance
+      - target_label: __address__
+        replacement: 192.168.12.129:9115
+
+  - job_name: 'port_status'
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: ['192.168.12.129:8080','192.168.12.129:80','192.168.12.130:8080','192.168.12.130:80','192.168.12.131:8080','192.168.12.131:80']
+        labels:
+          instance: 'port_status'
+          group: 'port'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+        #      - source_labels: [__param_target]
+        #        target_label: instance
+      - target_label: __address__
+        replacement: 192.168.12.129:9115
+
+  - job_name: 'web_status'
+    scrape_interval: 10s
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ['localhost:8080']
+        labels:
+          instance: web_status
+          group: web
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 192.168.12.129:9115

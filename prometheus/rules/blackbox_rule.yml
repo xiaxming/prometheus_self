@@ -1,0 +1,11 @@
+groups:
+- name: blackbox_network_stats
+  rules:
+  - alert: blackbox_network_stats
+    expr: probe_success == 0  #0联通性异常,1联通信正常
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Instance {{ $labels.instance }}  is dowm"
+      description: "This requires immediate action!"

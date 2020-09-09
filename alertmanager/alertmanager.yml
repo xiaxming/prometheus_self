@@ -1,0 +1,24 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.qq.com:25'
+  smtp_from: '1191246623@qq.com'
+  smtp_auth_username: '1191246623@qq.com'
+  smtp_auth_password: 'gotbxagaxschheff'        #这是授权码，不是密码，
+  smtp_require_tls: false
+
+route:
+  group_by: ['alertname']
+  group_wait: 2s
+  group_interval: 8s
+  repeat_interval: 20h
+  receiver: 'default-receiver'
+  routes:
+  - receiver: 'default-receiver'
+    match:              #匹配告警规则的key:value
+      severity: 'critical'                
+
+receivers:                                  
+- name: 'default-receiver'
+  email_configs:             
+  - to: 'xia_xingming@163.com'
+    send_resolved: true  #告警解除发送恢复通知

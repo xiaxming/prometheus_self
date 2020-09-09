@@ -1,0 +1,80 @@
+node_exporter:9100
+mysqld_exporter:9104
+prometheus:9090
+pushgateway:9091
+blackbox_exporter:9115:node_status,port_status,web_status；
+nginx-vts-exporter:9913
+grafana:3000
+alertmanager:9093
+
+1、目录拷贝过去
+ansible all  -m  copy  -a  'src=/usr/local/node_exporter dest=/usr/local/'  
+ansible all  -m  copy  -a  'src=/usr/local/mysqld_exporter dest=/usr/local/'
+ansible all  -m  copy  -a  'src=/usr/local/pushgateway dest=/usr/local/'
+ansible all  -m  copy  -a  'src=/usr/local/blackbox_exporter dest=/usr/local/'
+
+2、创建用户
+ansible all  -m  shell  -a  'groupadd prometheus'
+ansible all  -m  shell  -a  'useradd -g prometheus -s /sbin/nologin prometheus'
+ansible all  -m  shell  -a  'chmod -R +x /usr/local/'
+ansible all  -m  shell  -a  'chown -R prometheus:prometheus /usr/local/node_exporter'
+ansible all  -m  shell  -a  'chown -R prometheus:prometheus /usr/local/mysqld_exporter'
+ansible all  -m  shell  -a  'chown -R prometheus:prometheus /usr/local/pushgateway'
+ansible all  -m  shell  -a  'chown -R prometheus:prometheus /usr/local/blackbox_exporter'
+
+3、起服务
+1)ansible all -m shell -a  '/usr/local/node_exporter/node_exporter'    #直接起node_exporter服务，修改prometheus主配，重启prometheus服务
+
+
+2)ansible all -m shell -a  '/usr/local/node_exporter/nginx-vts-exporter'  #只要操作代理服务器 #需要先修改配置文件，然后重启服务，最后起nginx_default_typexporter服务，修改prometheus主配，重启prometheus服务
+ansible all -m lineinfile -a "dest=/usr/local/nginx/conf/nginx.conf regexp:'^default_type' insertafter:'^default_type' line:vhost_traffic_status_zone;"
+
+ansible all -m lineinfile -a 'path=/usr/local/nginx/conf/nginx.conf  regexp="^#vhost_traffic_status_zone" line="vhost_traffic_status_zone;"'
+
+ --add-module=/root/nginx-module-vts --prefix=/usr/local/nginx --user=nginx --group=nginx --with-stream --with-http_ssl_module  --with-http_stub_status_module
+ 
+ curl -I -m 10 -o /dev/null -s -w %{http_code} localhost:8080
+ 
+3)ansible all -m shell -a  '/usr/local/mysqld_exporter/mysqld_exporter'  #先创建监控用户，再新增监控配置文件，最后起服务，修改prometheus主配，重启prometheus服务
+mysql  -uroot  -p123456  -e  'show databases;'
+
+脚本mysql.sh
+set global validate_password_policy=0;
+set global validate_password_length=6;
+mysql -uroot -p123456 -e "GRANT ALL ON *.* TO 'mysql_monitor'@'localhost' identified by 'mysql_monitor';"
+select * from mysql.user where user='mysql_monitor' \G;
+drop user mysql_monitor@'localhost';
+
+启动服务： 
+/usr/local/prometheus/prometheus --config.file=/usr/local/prometheus/prometheus.yml --storage.tsdb.path=/xia/software/prometheus-data  &
+sshpass  -p 123456 ssh -o StrictHostKeyChecking=no root@192.168.12.129 "/usr/local/mysqld_exporter/mysqld_exporter --config.my-cnf='/usr/local/mysqld_exporter/my.cnf'"
+ansible all  -m shell  -a  "/usr/local/mysqld_exporter/mysqld_exporter --config.my-cnf='/usr/local/mysqld_exporter/my.cnf'"  &
+
+ansible all  -m  copy  -a  'src=/usr/local/mysqld_exporter/my.cnf dest=/usr/local/mysqld_exporter/'
+
+4)ansible all -m shell -a  '/usr/local/pushgateway/pushgateway'           #具体不详，修改prometheus主配，重启prometheus服务
+
+5)ansible all -m shell -a  '/usr/local/blackbox_exporter/blackbox_exporter'  #修改配置文件，修改prometheus主配，重启prometheus服务
+
+4、查看端口
+
+5、修改prometheus主配置文件
+
+6、重启prometheus服务
+
+7、网页看效果
+ansible-doc -l
+
+Panel plugin not found: pmm-singlestat-panel
+
+nginx_filter_bytes{direction="out",filter="client::addr::",filterName="192.168.12.1",instance="proxy"}
+
+usr/local/blackbox_exporter/blackbox_exporter   --config.file=/usr/local/blackbox_exporter/blackbox.yml --stdout_logfile=/tmp/prometheus/blackbox_exporter.log
+
+#1是服务正常 ，0服务挂了 node
+probe_success == 0 ##联通性异常
+probe_success == 1 ##联通性正常
+
+拷贝相关文件(export相关和服务配置文件相关--nginx的代理服务器)，新增用户(两种)，修改文件夹属性，起服务，端口查询，主服务修改配置，监控json文件提前已经配置好，网页查看，报警规则或报警配置文件新增ip已提前做好
+
+
